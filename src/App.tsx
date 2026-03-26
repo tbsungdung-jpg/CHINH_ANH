@@ -35,8 +35,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import ReactCrop, { type Crop, centerCrop, makeAspectCrop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
-// Initialize Gemini AI - Moved inside function for better key management
-// const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Initialize Gemini AI
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 type Gender = 'Nữ' | 'Nam';
 type Background = 'Nền Xanh' | 'Nền Trắng' | 'Nền Đỏ' | 'Nền Xám';
@@ -279,12 +279,6 @@ export default function App() {
     setError(null);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-        throw new Error("API Key chưa được cấu hình. Vui lòng kiểm tra phần Secrets.");
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
       const model = "gemini-2.5-flash-image";
       
       // If user has drawn on the canvas, we merge it or send it as context
@@ -332,7 +326,7 @@ export default function App() {
         - Style: High quality studio lighting, professional ID photo.
       `;
 
-      const response = await ai.models.generateContent({
+      const response = await genAI.models.generateContent({
         model,
         contents: {
           parts: [
@@ -342,32 +336,15 @@ export default function App() {
         },
       });
 
-      if (!response.candidates || response.candidates.length === 0) {
-        throw new Error("AI không thể tạo nội dung cho ảnh này (có thể do vi phạm chính sách an toàn).");
-      }
-
       const part = response.candidates[0].content.parts.find(p => p.inlineData);
       if (part?.inlineData) {
         setResultImage(`data:image/png;base64,${part.inlineData.data}`);
         setActiveTab('export');
       } else {
-        throw new Error("Không tìm thấy ảnh kết quả trong phản hồi của AI.");
+        throw new Error("Không tìm thấy ảnh kết quả.");
       }
     } catch (err: any) {
-      console.error("Gemini AI Error:", err);
-      let userMessage = "Lỗi xử lý AI. Vui lòng thử lại.";
-      
-      if (err.message?.includes("API Key")) {
-        userMessage = err.message;
-      } else if (err.message?.includes("safety") || err.message?.includes("candidate")) {
-        userMessage = "Ảnh hoặc yêu cầu bị từ chối do chính sách an toàn của AI.";
-      } else if (err.message?.includes("quota") || err.message?.includes("429")) {
-        userMessage = "Hết hạn mức sử dụng AI (Quota exceeded). Vui lòng đợi một chút.";
-      } else if (err.message?.includes("network") || err.message?.includes("fetch")) {
-        userMessage = "Lỗi kết nối mạng. Vui lòng kiểm tra internet.";
-      }
-      
-      setError(userMessage);
+      setError("Lỗi xử lý AI. Vui lòng thử lại.");
     } finally {
       setIsProcessing(false);
     }
